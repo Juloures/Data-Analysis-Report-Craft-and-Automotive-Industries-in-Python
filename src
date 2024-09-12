@@ -1,0 +1,103 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import requests
+import io
+import os
+
+# Verificar o diretório de trabalho atual
+print("Diretório de trabalho atual:", os.getcwd())
+
+# URL do Google Drive para download direto
+file_url = 'https://drive.google.com/uc?id=1M3gwP2qsnMDvblobPrgSo_qyQUD32un9'
+
+# Função para baixar o CSV
+def download_csv(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return io.StringIO(response.text)
+    else:
+        raise FileNotFoundError("Não foi possível baixar o arquivo.")
+
+# Testar a leitura do arquivo
+try:
+    csv_data = download_csv(file_url)
+    data = pd.read_csv(csv_data)
+    print("Arquivo carregado com sucesso!")
+    print(data.head())  # Exibe as primeiras linhas para confirmar
+except FileNotFoundError as e:
+    print(f"Erro: {e}")
+    data = None  # Define 'data' como None se houver um erro ao carregar o arquivo
+except Exception as e:
+    print(f"Erro ao carregar o arquivo: {e}")
+    data = None  # Define 'data' como None se houver outro erro
+
+# Continuar com o processamento dos dados se o arquivo for carregado com sucesso
+if data is not None:
+    # Exibir a estrutura dos dados
+    print(data.info())
+    print(data['category_name'].unique())
+
+    # Limpeza de Dados
+    # Verificar duplicatas
+    duplicates = data.duplicated().sum()
+    print(f'Duplicatas encontradas: {duplicates}')
+
+    # Remover duplicatas, se houver
+    data = data.drop_duplicates()
+
+    # Verificar valores ausentes
+    missing_values = data.isnull().sum()
+    print('Valores ausentes por coluna:')
+    print(missing_values)
+
+    # Adicionar uma coluna para identificar a indústria
+    data['industry'] = data['category_name'].apply(
+        lambda x: 'Artesanato' if x in [
+            'Beading & Jewelry Making', 'Fabric Decorating', 'Knitting & Crochet Supplies',
+            'Printmaking Supplies', 'Scrapbooking & Stamping Supplies', 'Sewing Products',
+            'Craft & Hobby Fabric', 'Needlework Supplies', 'Arts, Crafts & Sewing Storage',
+            'Painting, Drawing & Art Supplies', 'Craft Supplies & Materials', 'Gift Wrapping Supplies',
+            'Party Decorations'
+        ] else 'Automotiva'
+    )
+
+    # Gráfico de Barras: Quantidade de categorias em cada indústria
+    plt.figure(figsize=(10, 6))
+    sns.countplot(x='industry', data=data)
+    plt.title('Quantidade de Categorias por Indústria')
+    plt.xlabel('Indústria')
+    plt.ylabel('Quantidade de Categorias')
+    plt.show()
+
+    # Função para plotar gráfico de pizza
+    def plot_pie_chart(df, industry_name):
+        df_industry = df[df['industry'] == industry_name]
+        if not df_industry.empty:
+            category_counts = df_industry['category_name'].value_counts()
+            plt.figure(figsize=(25, 20))
+            plt.pie(
+                category_counts,
+                labels=category_counts.index,
+                autopct='%1.1f%%',
+                startangle=140,
+                labeldistance=1.1  # Ajusta a distância dos rótulos
+            )
+            plt.title(f'Proporção de Categorias - {industry_name}')
+            plt.show()
+        else:
+            print(f"Nenhuma categoria encontrada para a indústria: {industry_name}")
+
+    plot_pie_chart(data, 'Artesanato')
+    plot_pie_chart(data, 'Automotiva')
+
+    # Histograma: Distribuição de produtos nas diferentes categorias
+    plt.figure(figsize=(70, 30))
+    sns.histplot(data['category_name'], discrete=True, kde=False)
+    plt.title('Distribuição de Produtos nas Categorias')
+    plt.xlabel('Categoria')
+    plt.ylabel('Número de Produtos')
+    plt.xticks(rotation=90)
+    plt.show()
+else:
+    print("Não foi possível carregar os dados. Verifique o caminho do arquivo e tente novamente.")
